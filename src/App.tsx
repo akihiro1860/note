@@ -3,6 +3,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -47,7 +48,7 @@ function PoolZone({ cardIds }: { cardIds: string[] }) {
   return (
     <div className={`pool${isOver ? ' over' : ''}`} ref={setNodeRef}>
       {cardIds.length === 0
-        ? <span className="empty-hint">すべて配置済み</span>
+        ? <span className="empty-hint">ぜんぶ ならべました 🎉</span>
         : cardIds.map(id => <DraggableCard key={id} id={id} text={cardMap[id].text} />)
       }
     </div>
@@ -57,12 +58,12 @@ function PoolZone({ cardIds }: { cardIds: string[] }) {
 function SlotZone({ index, cardId }: { index: number; cardId: string | null }) {
   const { setNodeRef, isOver } = useDroppable({ id: `slot-${index}` })
   return (
-    <div className={`slot${isOver ? ' over' : ''}`} ref={setNodeRef}>
+    <div className={`slot${isOver ? ' over' : ''}${cardId ? ' filled' : ''}`} ref={setNodeRef}>
       <span className="slot-number">{index + 1}</span>
       <div className="slot-content">
         {cardId
           ? <DraggableCard id={cardId} text={cardMap[cardId].text} inSlot />
-          : <span className="empty-hint">ドロップ</span>
+          : <span className="empty-hint">ここにドロップ</span>
         }
       </div>
     </div>
@@ -75,7 +76,10 @@ export default function App() {
   const [memo, setMemo] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 8 } }),
+  )
 
   function handleDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id))
@@ -123,20 +127,28 @@ export default function App() {
   }
 
   const activeCard = activeId ? cardMap[activeId] : null
+  const placedCount = SLOT_COUNT - pool.length
 
   return (
     <div className="app">
-      <h1>キーワード並び替え</h1>
-      <p className="subtitle">カードをドラッグして順番に並べてください</p>
+      <header className="header">
+        <h1>🔢 算数並び替えアプリ</h1>
+        <p className="subtitle">カードをドラッグして、考える順番にならべよう</p>
+      </header>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <section>
-          <h2 className="section-title">カード</h2>
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="section-title">カード</h2>
+            <span className="badge">{placedCount} / {SLOT_COUNT} 配置ずみ</span>
+          </div>
           <PoolZone cardIds={pool} />
         </section>
 
-        <section>
-          <h2 className="section-title">並び順</h2>
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="section-title">ならべる順番</h2>
+          </div>
           <div className="slots">
             {Array.from({ length: SLOT_COUNT }, (_, i) => (
               <SlotZone key={i} index={i} cardId={slots[i]} />
@@ -144,17 +156,20 @@ export default function App() {
           </div>
         </section>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={{ duration: 180 }}>
           {activeCard ? <div className="card overlay">{activeCard.text}</div> : null}
         </DragOverlay>
       </DndContext>
 
-      <section className="memo-section">
-        <h2 className="section-title">並び替えた理由</h2>
+      <section className="panel">
+        <div className="panel-head">
+          <h2 className="section-title">ならべた理由</h2>
+        </div>
         <textarea
+          className="memo"
           value={memo}
           onChange={e => setMemo(e.target.value)}
-          placeholder="並び替えた理由を入力してください..."
+          placeholder="どうしてこの順番にしたのか、書いてみよう…"
           rows={5}
         />
       </section>
